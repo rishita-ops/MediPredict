@@ -1,0 +1,46 @@
+{
+  "heart": {
+    "metrics": {
+      "accuracy": 0.8317,
+      "precision": 0.8132,
+      "recall": 0.897,
+      "f1_score": 0.853,
+      "roc_auc": 0.8921
+    },
+    "n_samples": 303,
+    "n_features": 20
+  },
+  "diabetes": {
+    "metrics": {
+      "accuracy": 0.7656,
+      "precision": 0.7056,
+      "recall": 0.5634,
+      "f1_score": 0.6266,
+      "roc_auc": 0.8362
+    },
+    "n_samples": 768,
+    "n_features": 15
+  },
+  "liver": {
+    "metrics": {
+      "accuracy": 0.7237,
+      "precision": 0.7318,
+      "recall": 0.9686,
+      "f1_score": 0.8337,
+      "roc_auc": 0.7566
+    },
+    "n_samples": 579,
+    "n_features": 17
+  },
+  "kidney": {
+    "metrics": {
+      "accuracy": 0.9975,
+      "precision": 0.996,
+      "recall": 1.0,
+      "f1_score": 0.998,
+      "roc_auc": 0.9999
+    },
+    "n_samples": 400,
+    "n_features": 36
+  }
+}

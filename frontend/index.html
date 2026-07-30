@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MediPredict — Clinical Risk Decision Support</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F8FA;
+  --surface:#FFFFFF;
+  --surface-2:#F1F3F6;
+  --border:#E2E6EB;
+  --text:#1A2130;
+  --muted:#667085;
+  --accent:#0F6E56;
+  --accent-bg:#E1F5EE;
+  --accent-border:#9FE1CB;
+  --amber:#B7791F;
+  --amber-bg:#FBEFDA;
+  --amber-border:#F0CE8E;
+  --danger:#9A3B26;
+  --danger-bg:#FBE9E4;
+  --danger-border:#EFC3AE;
+  --blue:#1D5FA8;
+  --blue-bg:#E6F1FB;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
+h1,h2,h3{font-weight:600;margin:0;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;}
+.brand{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--text);}
+.brand .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);}
+.brand .sub{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px;}
+.disclaimer-chip{font-size:11.5px;color:var(--muted);background:var(--surface-2);padding:5px 12px;border-radius:14px;border:1px solid var(--border);}
+
+.disease-tabs{display:flex;gap:6px;padding:12px 28px 0;background:var(--surface);border-bottom:1px solid var(--border);}
+.dtab{padding:10px 16px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;}
+.dtab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+.layout{display:grid;grid-template-columns:340px 1fr 320px;gap:0;min-height:calc(100vh - 108px);}
+@media (max-width:1200px){.layout{grid-template-columns:1fr;}}
+
+.col{padding:22px;}
+.col-left{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;}
+.col-center{background:var(--bg);}
+.col-right{background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;}
+
+.section-label{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;}
+
+.field{margin-bottom:12px;}
+.field label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:5px;}
+.field .unit{color:var(--muted);font-size:11px;}
+.field input,.field select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13.5px;font-family:inherit;}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);}
+
+.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-weight:600;font-size:13.5px;cursor:pointer;font-family:inherit;width:100%;}
+.btn:hover{filter:brightness(1.08);}
+.btn:disabled{opacity:.6;cursor:default;}
+.btn-outline{background:var(--surface);color:var(--text);border:1px solid var(--border);}
+.btn-outline:hover{border-color:var(--muted);}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;}
+
+.risk-hero{text-align:center;padding:12px 0 6px;}
+.risk-number{font-size:52px;font-weight:700;line-height:1;}
+.risk-number.low{color:var(--accent);}
+.risk-number.high{color:var(--danger);}
+.risk-caption{font-size:12.5px;color:var(--muted);margin-top:4px;}
+.confidence-band{font-size:12px;color:var(--muted);margin-top:10px;font-family:'JetBrains Mono',monospace;}
+.agreement-pill{display:inline-block;margin-top:10px;padding:4px 12px;border-radius:14px;font-size:11.5px;font-weight:600;}
+.agreement-pill.high{background:var(--accent-bg);color:var(--accent);}
+.agreement-pill.moderate{background:var(--amber-bg);color:var(--amber);}
+.agreement-pill.low{background:var(--danger-bg);color:var(--danger);}
+
+.base-model-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--surface-2);font-size:12.5px;}
+.base-model-row:last-child{border-bottom:none;}
+.base-model-bar{height:5px;border-radius:3px;background:var(--surface-2);flex:1;margin:0 10px;overflow:hidden;}
+.base-model-bar-fill{height:100%;background:var(--accent);}
+
+.shap-row{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:12.5px;}
+.shap-name{width:150px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;}
+.shap-bar-wrap{flex:1;height:16px;position:relative;background:var(--surface-2);border-radius:3px;overflow:hidden;}
+.shap-bar{position:absolute;top:0;height:100%;}
+.shap-bar.pos{background:var(--danger-border);right:50%;}
+.shap-bar.neg{background:var(--accent-border);left:50%;}
+.shap-val{width:52px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+
+.alert-box{border-radius:9px;padding:11px 13px;font-size:12.5px;margin-bottom:10px;border:1px solid;}
+.alert-box.danger{background:var(--danger-bg);border-color:var(--danger-border);color:var(--danger);}
+.alert-box.ok{background:var(--accent-bg);border-color:var(--accent-border);color:var(--accent);}
+
+.whatif-row{margin-bottom:14px;}
+.whatif-row label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:4px;}
+.whatif-row .whatif-val{font-weight:600;color:var(--text);font-family:'JetBrains Mono',monospace;}
+.whatif-row input[type=range]{width:100%;}
+
+.tabsub{display:flex;gap:4px;margin-bottom:14px;}
+.tabsub-btn{flex:1;padding:7px;text-align:center;font-size:12px;font-weight:500;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--muted);}
+.tabsub-btn:first-child{border-radius:7px 0 0 7px;}
+.tabsub-btn:last-child{border-radius:0 7px 7px 0;}
+.tabsub-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+.compare-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--surface-2);font-size:12.5px;}
+.empty{color:var(--muted);font-size:12.5px;text-align:center;padding:20px 0;}
+
+.history-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--surface-2);font-size:12.5px;}
+.history-row:last-child{border-bottom:none;}
+.small-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;}
+.small-x:hover{color:var(--danger);}
+.pill-sm{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.pill-sm.high{background:var(--danger-bg);color:var(--danger);}
+.pill-sm.low{background:var(--accent-bg);color:var(--accent);}
+
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;}
+.checkbox-row input{width:auto;}
+
+/* reference range mini-bar */
+.refrange{position:relative;height:6px;background:var(--surface-2);border-radius:3px;margin-top:6px;margin-bottom:2px;}
+.refrange-band{position:absolute;top:0;height:100%;background:var(--accent-border);border-radius:3px;}
+.refrange-marker{position:absolute;top:-3px;width:2px;height:12px;background:var(--text);}
+.refrange-marker.out{background:var(--danger);}
+.refrange-label{font-size:10.5px;color:var(--muted);margin-top:3px;}
+
+/* glossary tooltip */
+.gloss-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--surface-2);color:var(--muted);font-size:10px;cursor:help;margin-left:5px;position:relative;}
+.gloss-icon:hover .gloss-pop{display:block;}
+.gloss-pop{display:none;position:absolute;bottom:20px;left:0;width:220px;background:var(--text);color:#fff;padding:10px 12px;border-radius:8px;font-size:11.5px;line-height:1.5;z-index:20;box-shadow:0 4px 16px rgba(0,0,0,.18);}
+
+/* imputed field highlight */
+.field.imputed input,.field.imputed select{background:#F5F0FB;border-color:#C9AEE8;}
+.imputed-note{font-size:10.5px;color:#7B4FB0;margin-top:3px;}
+
+/* unit toggle */
+.unit-toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+.unit-toggle button{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:11.5px;cursor:pointer;color:var(--muted);}
+.unit-toggle button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* differential matrix */
+.diff-matrix{display:flex;gap:10px;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.diff-card{flex:1;min-width:150px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.diff-card .dname{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+.diff-card .dval{font-size:22px;font-weight:700;margin-top:2px;}
+.diff-card .dval.low{color:var(--accent);}
+.diff-card .dval.high{color:var(--danger);}
+.diff-card .dnote{font-size:10.5px;color:var(--muted);margin-top:4px;}
+
+/* trend sparkline */
+.trend-wrap{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+.trend-svg{width:100%;height:50px;}
+
+.delta-callout{background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:8px;padding:9px 12px;font-size:12.5px;color:var(--accent);margin-top:10px;}
+.delta-callout.worse{background:var(--danger-bg);border-color:var(--danger-border);color:var(--danger);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span>MediPredict<span class="sub">Clinical Decision Support</span></div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="unit-toggle">
+      <span>Units:</span>
+      <button id="unit-us" class="active">US (mg/dL)</button>
+      <button id="unit-si">SI (mmol/L)</button>
+    </div>
+    <div class="disclaimer-chip">Decision-support estimate — not a diagnosis</div>
+  </div>
+</div>
+
+<div class="disease-tabs" id="disease-tabs"></div>
+
+<div class="diff-matrix" id="diff-matrix-strip">
+  <div style="width:100%;display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:12px;color:var(--muted);">Cross-disease differential (from shared fields: age, BP, glucose, BMI)</span>
+    <button class="btn-outline btn" style="width:auto;padding:6px 14px;font-size:12px;" id="run-differential-btn">Check across all 4 diseases</button>
+  </div>
+</div>
+<div class="diff-matrix" id="diff-matrix-results" style="display:none;"></div>
+
+<div class="layout">
+
+  <div class="col col-left">
+    <div class="field">
+      <label>Patient label <span class="unit">for history &amp; trend</span></label>
+      <input type="text" id="patient-label-input" placeholder="e.g. PT-001" value="Unnamed patient">
+    </div>
+    <div class="section-label" id="form-title">Patient data</div>
+    <div id="form-fields"></div>
+    <button class="btn" id="predict-btn" style="margin-top:8px;">Run prediction</button>
+    <button class="btn btn-outline" id="fill-sample-btn" style="margin-top:8px;">Fill sample patient</button>
+    <button class="btn btn-outline" id="view-trend-btn" style="margin-top:8px;">View this patient's trend</button>
+
+    <div class="trend-wrap" id="trend-panel" style="display:none;">
+      <div class="section-label">Risk over time</div>
+      <svg class="trend-svg" id="trend-svg" viewBox="0 0 280 50"></svg>
+      <div class="empty" id="trend-empty" style="display:none;">No repeat history for this patient label yet.</div>
+    </div>
+
+    <div id="framingham-block" style="display:none;margin-top:22px;">
+      <div class="section-label">Framingham inputs (2nd opinion)</div>
+      <div class="field"><label>HDL cholesterol <span class="unit">mg/dL</span></label><input type="number" id="fr-hdl" value="45"></div>
+      <div class="field"><label>Systolic BP <span class="unit">mmHg</span></label><input type="number" id="fr-sbp" value="130"></div>
+      <div class="checkbox-row"><input type="checkbox" id="fr-treated"> <label for="fr-treated" style="margin:0;">On BP medication</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="fr-smoker"> <label for="fr-smoker" style="margin:0;">Current smoker</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="fr-diabetic"> <label for="fr-diabetic" style="margin:0;">Diabetic</label></div>
+      <button class="btn btn-outline" id="framingham-btn">Calculate Framingham risk</button>
+    </div>
+  </div>
+
+  <div class="col col-center">
+
+    <div class="card">
+      <div class="tabsub">
+        <div class="tabsub-btn active" data-center="result">Result</div>
+        <div class="tabsub-btn" data-center="whatif">What-if</div>
+        <div class="tabsub-btn" data-center="compare">Compare</div>
+      </div>
+
+      <div id="center-result">
+        <div class="risk-hero">
+          <div class="risk-number" id="risk-number">—</div>
+          <div class="risk-caption" id="risk-caption">Run a prediction to see the result</div>
+          <div class="agreement-pill" id="agreement-pill" style="visibility:hidden;">—</div>
+          <div class="confidence-band" id="confidence-band"></div>
+        </div>
+      </div>
+
+      <div id="center-whatif" style="display:none;">
+        <div class="section-label">Live recalculation</div>
+        <div id="whatif-delta"></div>
+        <div id="whatif-sliders"><div class="empty">Run a prediction first, then drag sliders here to see the risk update live.</div></div>
+      </div>
+
+      <div id="center-compare" style="display:none;">
+        <div class="section-label">Framingham vs. model</div>
+        <div id="compare-content"><div class="empty">Run both a prediction and a Framingham calculation (heart disease only) to compare.</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Base model agreement</div>
+      <div id="base-models"><div class="empty">No prediction yet.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Out-of-distribution check</div>
+      <div id="ood-alerts"><div class="empty">No prediction yet.</div></div>
+    </div>
+
+    <button class="btn btn-outline" id="download-briefing-btn" disabled>Download PDF briefing packet</button>
+  </div>
+
+  <div class="col col-right">
+    <div class="section-label">What drove this (SHAP)</div>
+    <div id="shap-panel" style="margin-bottom:24px;"><div class="empty">Run a prediction to see real per-feature contributions.</div></div>
+
+    <div class="section-label">History</div>
+    <div id="history-list"><div class="empty">No predictions yet.</div></div>
+  </div>
+
+</div>
+
+<script>
+const API = "/api";
+let DISEASES = {};
+let currentDisease = "heart";
+let lastPayload = null;
+let lastResult = null;
+let lastFraminghamResult = null;
+let GLOSSARY = {};
+let REF_RANGES = {};
+let unitMode = "us"; // "us" or "si"
+let hasFirstPrediction = false;
+
+const SAMPLES = {
+  heart: {age:63,sex:1,cp:3,trestbps:145,chol:233,fbs:1,restecg:0,thalach:150,exang:0,oldpeak:2.3,slope:0,ca:0,thal:1},
+  diabetes: {preg:6,glucose:148,bp:72,skinthickness:35,insulin:0,bmi:33.6,dpf:0.627,age:50},
+  liver: {age:65,gender:"Female",total_bilirubin:0.7,direct_bilirubin:0.1,alkaline_phosphotase:187,alamine_aminotransferase:16,aspartate_aminotransferase:18,total_protiens:6.8,albumin:3.3,albumin_and_globulin_ratio:0.9},
+  kidney: {age:48,bp:80,sg:1.02,al:1,su:0,rbc:"normal",pc:"normal",pcc:"notpresent",ba:"notpresent",bgr:121,bu:36,sc:1.2,sod:140,pot:4.5,hemo:15.4,pcv:44,wc:7800,rc:5.2,htn:"yes",dm:"yes",cad:"no",appet:"good",pe:"no",ane:"no"}
+};
+
+const SLIDER_RANGES = {
+  age:[10,100,1], trestbps:[80,220,1], chol:[100,500,1], thalach:[60,220,1], oldpeak:[0,7,0.1],
+  glucose:[40,300,1], bp:[40,140,1], bmi:[10,60,0.1], insulin:[0,400,1], skinthickness:[0,80,1],
+  total_bilirubin:[0,20,0.1], direct_bilirubin:[0,10,0.1], albumin:[1,6,0.1],
+  alkaline_phosphotase:[20,1000,1], alamine_aminotransferase:[5,300,1], aspartate_aminotransferase:[5,300,1],
+  bgr:[50,400,1], bu:[5,150,1], sc:[0.3,15,0.1], sod:[110,160,1], pot:[2,8,0.1], hemo:[4,18,0.1], pcv:[15,55,1]
+};
+
+// Real US -> SI conversion factors for the fields where clinicians actually
+// use different units regionally. Model always trained on US units, so we
+// convert display only -- values are converted back before hitting the API.
+const UNIT_CONVERSIONS = {
+  chol: { factor: 0.0259, si: "mmol/L", us: "mg/dL" },
+  glucose: { factor: 0.0555, si: "mmol/L", us: "mg/dL" },
+  bgr: { factor: 0.0555, si: "mmol/L", us: "mg/dL" },
+  total_bilirubin: { factor: 17.1, si: "µmol/L", us: "mg/dL" },
+  direct_bilirubin: { factor: 17.1, si: "µmol/L", us: "mg/dL" },
+  sc: { factor: 88.4, si: "µmol/L", us: "mg/dL" },
+  bu: { factor: 0.357, si: "mmol/L", us: "mg/dL" },
+  total_protiens: { factor: 10, si: "g/L", us: "g/dL" },
+  albumin: { factor: 10, si: "g/L", us: "g/dL" },
+};
+
+// glossary keys that map to specific form fields (beyond exact name matches)
+const FIELD_GLOSSARY_ALIASES = {
+  ast_alt_note: null,
+};
+
+async function init(){
+  const res = await fetch(`${API}/diseases`);
+  DISEASES = await res.json();
+  const g = await fetch(`${API}/glossary`); GLOSSARY = await g.json();
+  renderTabs();
+  await loadReferenceRanges(currentDisease);
+  renderForm(currentDisease);
+}
+
+function renderTabs(){
+  const wrap = document.getElementById("disease-tabs");
+  wrap.innerHTML = "";
+  Object.entries(DISEASES).forEach(([key, d]) => {
+    const el = document.createElement("div");
+    el.className = "dtab" + (key === currentDisease ? " active" : "");
+    el.textContent = d.label;
+    el.onclick = async () => {
+      currentDisease = key; renderTabs();
+      await loadReferenceRanges(key);
+      renderForm(key); resetResult();
+    };
+    wrap.appendChild(el);
+  });
+}
+
+async function loadReferenceRanges(disease){
+  const res = await fetch(`${API}/reference-ranges/${disease}`);
+  REF_RANGES = await res.json();
+}
+
+function glossaryTermFor(fieldName){
+  if(GLOSSARY[fieldName]) return GLOSSARY[fieldName];
+  const aliasMap = { thal:"thal", ca:"ca", cp:"cp", oldpeak:"oldpeak", slope:"slope", dpf:"dpf",
+                      sg:"sg", al:"al", rbc:"rbc_urine" };
+  const alias = aliasMap[fieldName];
+  return alias ? GLOSSARY[alias] : null;
+}
+
+function renderForm(key){
+  const d = DISEASES[key];
+  document.getElementById("form-title").textContent = d.label + " — patient data";
+  document.getElementById("framingham-block").style.display = key === "heart" ? "block" : "none";
+  const grid = document.getElementById("form-fields");
+  grid.innerHTML = "";
+  d.fields.forEach(f => {
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    wrap.dataset.fieldName = f.name;
+
+    const label = document.createElement("label");
+    const gloss = glossaryTermFor(f.name);
+    let unitLabel = "";
+    if(UNIT_CONVERSIONS[f.name]){
+      unitLabel = unitMode === "si" ? UNIT_CONVERSIONS[f.name].si : UNIT_CONVERSIONS[f.name].us;
+    }
+    label.innerHTML = `<span>${f.label}${gloss ? `<span class="gloss-icon">i<span class="gloss-pop">${gloss}</span></span>` : ""}</span>${unitLabel ? `<span class="unit">${unitLabel}</span>` : ""}`;
+    wrap.appendChild(label);
+
+    if(f.type === "select"){
+      const sel = document.createElement("select");
+      sel.dataset.name = f.name;
+      f.options.forEach(([val, text]) => {
+        const opt = document.createElement("option");
+        opt.value = val; opt.textContent = text;
+        sel.appendChild(opt);
+      });
+      wrap.appendChild(sel);
+    } else {
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.step = "any"; inp.dataset.name = f.name;
+      inp.addEventListener("input", debounce(onFieldEdited, 500));
+      wrap.appendChild(inp);
+    }
+
+    if(REF_RANGES[f.name]){
+      const r = REF_RANGES[f.name];
+      const bar = document.createElement("div");
+      bar.className = "refrange";
+      const span = SLIDER_RANGES[f.name] ? (SLIDER_RANGES[f.name][1] - SLIDER_RANGES[f.name][0]) : (r.high - r.low) * 3;
+      const min = SLIDER_RANGES[f.name] ? SLIDER_RANGES[f.name][0] : Math.max(0, r.low - span/3);
+      const bandLeft = ((r.low - min) / span) * 100;
+      const bandWidth = ((r.high - r.low) / span) * 100;
+      bar.innerHTML = `<div class="refrange-band" style="left:${Math.max(0,bandLeft)}%;width:${Math.max(2,bandWidth)}%;"></div>`;
+      wrap.appendChild(bar);
+      const lbl = document.createElement("div");
+      lbl.className = "refrange-label";
+      lbl.textContent = `Normal: ${r.low}–${r.high} ${unitMode==="si" && UNIT_CONVERSIONS[f.name] ? UNIT_CONVERSIONS[f.name].si : r.unit}`;
+      wrap.appendChild(lbl);
+    }
+
+    grid.appendChild(wrap);
+  });
+}
+
+function fillSample(){
+  const sample = SAMPLES[currentDisease];
+  document.querySelectorAll("#form-fields [data-name]").forEach(el => {
+    if(sample[el.dataset.name] !== undefined) el.value = sample[el.dataset.name];
+  });
+}
+
+// converts a displayed (possibly SI) value back to the US unit the model
+// was trained on
+function toUSUnit(field, value){
+  if(unitMode === "si" && UNIT_CONVERSIONS[field]){
+    return value / UNIT_CONVERSIONS[field].factor;
+  }
+  return value;
+}
+
+function collectForm(){
+  const data = {};
+  document.querySelectorAll("#form-fields [data-name]").forEach(el => {
+    const raw = el.value;
+    if(el.tagName === "SELECT"){ data[el.dataset.name] = raw; return; }
+    if(raw === ""){ data[el.dataset.name] = null; return; } // blank -> imputed server-side
+    data[el.dataset.name] = toUSUnit(el.dataset.name, parseFloat(raw));
+  });
+  return data;
+}
+
+function getPatientLabel(){
+  const v = document.getElementById("patient-label-input").value.trim();
+  return v || "Unnamed patient";
+}
+
+function resetResult(){
+  document.getElementById("risk-number").textContent = "—";
+  document.getElementById("risk-number").className = "risk-number";
+  document.getElementById("risk-caption").textContent = "Run a prediction to see the result";
+  document.getElementById("agreement-pill").style.visibility = "hidden";
+  document.getElementById("confidence-band").textContent = "";
+  document.getElementById("base-models").innerHTML = '<div class="empty">No prediction yet.</div>';
+  document.getElementById("ood-alerts").innerHTML = '<div class="empty">No prediction yet.</div>';
+  document.getElementById("shap-panel").innerHTML = '<div class="empty">Run a prediction to see real per-feature contributions.</div>';
+  document.getElementById("download-briefing-btn").disabled = true;
+  document.getElementById("whatif-sliders").innerHTML = '<div class="empty">Run a prediction first, then drag sliders here to see the risk update live.</div>';
+  document.getElementById("whatif-delta").innerHTML = "";
+  document.getElementById("trend-panel").style.display = "none";
+  document.querySelectorAll(".field.imputed").forEach(f => f.classList.remove("imputed"));
+  lastPayload = null; lastResult = null; hasFirstPrediction = false;
+}
+
+async function runPredict(){
+  const payload = collectForm();
+  payload.patient_label = getPatientLabel();
+  lastPayload = { ...payload };
+  const btn = document.getElementById("predict-btn");
+  btn.textContent = "Predicting..."; btn.disabled = true;
+  try{
+    const res = await fetch(`${API}/predict/${currentDisease}`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error((await res.json()).detail || "Prediction failed");
+    const result = await res.json();
+    lastResult = result;
+    hasFirstPrediction = true;
+    showResult(result);
+    highlightImputedFields(result.imputed_fields || []);
+    loadShap(currentDisease, payload);
+    renderWhatifSliders(payload);
+    document.getElementById("download-briefing-btn").disabled = false;
+    loadHistory();
+  }catch(err){
+    alert(err.message);
+  }finally{
+    btn.textContent = "Run prediction"; btn.disabled = false;
+  }
+}
+
+function highlightImputedFields(imputedFields){
+  document.querySelectorAll(".field.imputed").forEach(f => f.classList.remove("imputed"));
+  imputedFields.forEach(name => {
+    const wrap = document.querySelector(`.field[data-field-name="${name}"]`);
+    if(wrap){
+      wrap.classList.add("imputed");
+      if(!wrap.querySelector(".imputed-note")){
+        const note = document.createElement("div");
+        note.className = "imputed-note";
+        note.textContent = "Left blank — auto-filled with a typical value for this model";
+        wrap.appendChild(note);
+      }
+    }
+  });
+}
+
+function showResult(result){
+  const pct = Math.round(result.probability * 100);
+  const el = document.getElementById("risk-number");
+  el.textContent = pct + "%";
+  el.className = "risk-number " + (result.prediction === 1 ? "high" : "low");
+
+  const band = result.uncertainty.confidence_band;
+  const ciLow = Math.round(band[0]*100), ciHigh = Math.round(band[1]*100);
+  document.getElementById("risk-caption").textContent =
+    `${result.risk_label} · ${pct}% [CI: ${ciLow}%–${ciHigh}%]`;
+
+  const pill = document.getElementById("agreement-pill");
+  pill.style.visibility = "visible";
+  pill.className = "agreement-pill " + result.uncertainty.agreement;
+  pill.textContent = result.uncertainty.agreement + " model agreement";
+  document.getElementById("confidence-band").textContent = "";
+
+  renderBaseModels(result.uncertainty.base_model_probabilities);
+  renderOOD(result.ood_flags);
+}
+
+function renderBaseModels(probs){
+  const wrap = document.getElementById("base-models");
+  wrap.innerHTML = "";
+  Object.entries(probs).forEach(([name, p]) => {
+    const pct = Math.round(p*100);
+    const row = document.createElement("div");
+    row.className = "base-model-row";
+    row.innerHTML = `<span style="width:60px;">${name.toUpperCase()}</span>
+      <div class="base-model-bar"><div class="base-model-bar-fill" style="width:${pct}%;"></div></div>
+      <span class="mono" style="width:40px;text-align:right;">${pct}%</span>`;
+    wrap.appendChild(row);
+  });
+}
+
+function renderOOD(flags){
+  const wrap = document.getElementById("ood-alerts");
+  wrap.innerHTML = "";
+  if(!flags || flags.length === 0){
+    wrap.innerHTML = '<div class="alert-box ok">All inputs fall within the range this model was trained on.</div>';
+    return;
+  }
+  flags.forEach(f => {
+    const box = document.createElement("div");
+    box.className = "alert-box danger";
+    box.innerHTML = `<strong>${f.feature}</strong> = ${f.value} is outside the training range
+      (${f.expected_range[0]} – ${f.expected_range[1]}, z = ${f.z_score}). The model is extrapolating here.`;
+    wrap.appendChild(box);
+  });
+}
+
+async function loadShap(disease, payload){
+  const wrap = document.getElementById("shap-panel");
+  wrap.innerHTML = '<div class="empty">Computing SHAP contributions…</div>';
+  try{
+    const res = await fetch(`${API}/explain/${disease}`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    wrap.innerHTML = "";
+    const maxAbs = Math.max(...data.shap_contributions.map(c => Math.abs(c.impact)), 0.001);
+    data.shap_contributions.forEach(c => {
+      const pct = Math.min(50, (Math.abs(c.impact) / maxAbs) * 50);
+      const row = document.createElement("div");
+      row.className = "shap-row";
+      row.innerHTML = `
+        <div class="shap-name" title="${c.feature}">${c.feature}</div>
+        <div class="shap-bar-wrap">
+          <div class="shap-bar ${c.impact>=0?'pos':'neg'}" style="width:${pct}%;"></div>
+        </div>
+        <div class="shap-val">${c.impact>=0?'+':''}${c.impact.toFixed(3)}</div>`;
+      wrap.appendChild(row);
+    });
+  }catch(e){
+    wrap.innerHTML = '<div class="empty">Could not compute SHAP contributions.</div>';
+  }
+}
+
+function renderWhatifSliders(payload){
+  const wrap = document.getElementById("whatif-sliders");
+  wrap.innerHTML = "";
+  const numericFields = Object.keys(payload).filter(k => SLIDER_RANGES[k] && payload[k] !== null);
+  if(numericFields.length === 0){
+    wrap.innerHTML = '<div class="empty">No sliderable numeric fields for this disease.</div>';
+    return;
+  }
+  numericFields.forEach(field => {
+    const [min, max, step] = SLIDER_RANGES[field];
+    const row = document.createElement("div");
+    row.className = "whatif-row";
+    row.innerHTML = `
+      <label><span>${field}</span><span class="whatif-val" id="wv-${field}">${payload[field]}</span></label>
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${payload[field]}" data-field="${field}">`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll("input[type=range]").forEach(slider => {
+    slider.addEventListener("input", debounce(onWhatifSlide, 250));
+  });
+}
+
+function debounce(fn, ms){
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// live recompute when any field is edited after the first prediction --
+// covers "Live SHAP as you type" and keeps the what-if panel in sync
+async function onFieldEdited(){
+  if(!hasFirstPrediction) return;
+  const payload = collectForm();
+  payload.patient_label = getPatientLabel();
+  try{
+    const res = await fetch(`${API}/whatif/${currentDisease}`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    const prevPct = lastResult ? Math.round(lastResult.probability*100) : null;
+    updateRiskDisplay(result, "live edit");
+    loadShap(currentDisease, payload);
+    lastPayload = { ...payload };
+  }catch(err){}
+}
+
+function updateRiskDisplay(result, captionSuffix){
+  const pct = Math.round(result.probability*100);
+  document.getElementById("risk-number").textContent = pct + "%";
+  document.getElementById("risk-number").className = "risk-number " + (result.prediction===1?"high":"low");
+  document.getElementById("risk-caption").textContent = `${result.risk_label} · ${captionSuffix}`;
+}
+
+async function onWhatifSlide(e){
+  const field = e.target.dataset.field;
+  const value = parseFloat(e.target.value);
+  document.getElementById(`wv-${field}`).textContent = value;
+  const payload = { ...lastPayload, [field]: value };
+  const baselinePct = lastResult ? Math.round(lastResult.probability*100) : null;
+  try{
+    const res = await fetch(`${API}/whatif/${currentDisease}`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    updateRiskDisplay(result, "live what-if recalculation");
+    if(baselinePct !== null){
+      const newPct = Math.round(result.probability*100);
+      const delta = newPct - baselinePct;
+      const box = document.getElementById("whatif-delta");
+      if(Math.abs(delta) < 1){
+        box.innerHTML = "";
+      } else {
+        const improved = delta < 0;
+        box.innerHTML = `<div class="delta-callout ${improved ? '' : 'worse'}">
+          Changing <strong>${field}</strong> to ${value} would ${improved ? 'lower' : 'raise'} risk by
+          <strong>${Math.abs(delta)}%</strong> (from ${baselinePct}% to ${newPct}%).</div>`;
+      }
+    }
+  }catch(err){}
+}
+
+async function runFramingham(){
+  const sex = document.querySelector('#form-fields [data-name="sex"]');
+  const age = document.querySelector('#form-fields [data-name="age"]');
+  const chol = document.querySelector('#form-fields [data-name="chol"]');
+  const payload = {
+    sex: (sex && sex.value === "1") ? "male" : "female",
+    age: age ? parseFloat(age.value) : 50,
+    total_chol: chol ? toUSUnit("chol", parseFloat(chol.value)) : 200,
+    hdl: parseFloat(document.getElementById("fr-hdl").value),
+    sbp: parseFloat(document.getElementById("fr-sbp").value),
+    bp_treated: document.getElementById("fr-treated").checked,
+    smoker: document.getElementById("fr-smoker").checked,
+    diabetic: document.getElementById("fr-diabetic").checked,
+  };
+  const res = await fetch(`${API}/framingham`, {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  lastFraminghamResult = data;
+  switchCenterTab("compare");
+  renderCompare();
+}
+
+function renderCompare(){
+  const wrap = document.getElementById("compare-content");
+  if(!lastResult || !lastFraminghamResult){
+    wrap.innerHTML = '<div class="empty">Run both a prediction and a Framingham calculation (heart disease only) to compare.</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="compare-row"><span>MediPredict stacked ensemble</span><strong>${Math.round(lastResult.probability*100)}%</strong></div>
+    <div class="compare-row"><span>Framingham 10-year CVD risk</span><strong>${lastFraminghamResult.ten_year_cvd_risk_percent}%</strong></div>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted);">Framingham estimates 10-year cardiovascular event risk from a published formula (${lastFraminghamResult.source}). MediPredict estimates present-moment heart disease probability from clinical exam data. They measure different things and won't match exactly — useful when they broadly agree, worth a second look when they diverge sharply.</div>`;
+}
+
+function switchCenterTab(tab){
+  document.querySelectorAll(".tabsub-btn").forEach(b => b.classList.toggle("active", b.dataset.center === tab));
+  ["result","whatif","compare"].forEach(t => {
+    document.getElementById(`center-${t}`).style.display = t === tab ? "block" : "none";
+  });
+}
+
+async function loadHistory(){
+  const res = await fetch(`${API}/history`);
+  const rows = await res.json();
+  const wrap = document.getElementById("history-list");
+  if(rows.length === 0){ wrap.innerHTML = '<div class="empty">No predictions yet.</div>'; return; }
+  wrap.innerHTML = "";
+  rows.slice(0, 15).forEach(r => {
+    const el = document.createElement("div");
+    el.className = "history-row";
+    const label = (DISEASES[r.disease] || {}).label || r.disease;
+    el.innerHTML = `
+      <div>
+        <div>${r.patient_label} <span class="mono" style="color:var(--muted);font-size:11px;">· ${label}</span></div>
+        <div style="color:var(--muted);font-size:11px;">${new Date(r.created_at).toLocaleString()}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="pill-sm ${r.prediction === 1 ? 'high' : 'low'}">${Math.round(r.probability*100)}%</span>
+        <button class="small-x" data-id="${r.id}">×</button>
+      </div>`;
+    el.querySelector(".small-x").onclick = async (e) => {
+      await fetch(`${API}/history/${e.target.dataset.id}`, {method:"DELETE"});
+      loadHistory();
+    };
+    wrap.appendChild(el);
+  });
+}
+
+async function viewTrend(){
+  const label = getPatientLabel();
+  const res = await fetch(`${API}/history/trend?` + new URLSearchParams({patient_label: label, disease: currentDisease}));
+  const rows = await res.json();
+  const panel = document.getElementById("trend-panel");
+  const svg = document.getElementById("trend-svg");
+  const empty = document.getElementById("trend-empty");
+  panel.style.display = "block";
+  if(rows.length < 2){
+    svg.innerHTML = ""; empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  const w = 280, h = 50, pad = 6;
+  const pts = rows.map((r, i) => {
+    const x = pad + (i / (rows.length - 1)) * (w - pad*2);
+    const y = h - pad - (r.probability * (h - pad*2));
+    return [x, y];
+  });
+  const path = pts.map(p => p.join(",")).join(" ");
+  const lastUp = rows[rows.length-1].probability >= rows[0].probability;
+  svg.innerHTML = `
+    <polyline points="${path}" fill="none" stroke="${lastUp ? '#9A3B26' : '#0F6E56'}" stroke-width="2"/>
+    ${pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${lastUp ? '#9A3B26' : '#0F6E56'}"/>`).join("")}
+  `;
+}
+
+async function downloadBriefing(){
+  if(!lastPayload) return;
+  const res = await fetch(`${API}/briefing/${currentDisease}`, {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(lastPayload)
+  });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `medipredict_${currentDisease}_briefing.pdf`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+async function runDifferential(){
+  const ageEl = document.querySelector('#form-fields [data-name="age"]');
+  const payload = { age: ageEl ? parseFloat(ageEl.value) || null : null };
+
+  if(currentDisease === "heart"){
+    const bp = document.querySelector('#form-fields [data-name="trestbps"]');
+    if(bp && bp.value) payload.systolic_or_resting_bp = toUSUnit("trestbps", parseFloat(bp.value));
+  }
+  if(currentDisease === "kidney"){
+    const bp = document.querySelector('#form-fields [data-name="bp"]');
+    const bgr = document.querySelector('#form-fields [data-name="bgr"]');
+    if(bp && bp.value) payload.systolic_or_resting_bp = parseFloat(bp.value);
+    if(bgr && bgr.value) payload.glucose = toUSUnit("bgr", parseFloat(bgr.value));
+  }
+  if(currentDisease === "diabetes"){
+    const bp = document.querySelector('#form-fields [data-name="bp"]');
+    const glucose = document.querySelector('#form-fields [data-name="glucose"]');
+    const bmi = document.querySelector('#form-fields [data-name="bmi"]');
+    if(bp && bp.value) payload.diastolic_bp = parseFloat(bp.value);
+    if(glucose && glucose.value) payload.glucose = toUSUnit("glucose", parseFloat(glucose.value));
+    if(bmi && bmi.value) payload.bmi = parseFloat(bmi.value);
+  }
+
+  const res = await fetch(`${API}/differential`, {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  renderDifferential(data);
+}
+
+function renderDifferential(data){
+  const wrap = document.getElementById("diff-matrix-results");
+  wrap.style.display = "flex";
+  wrap.innerHTML = "";
+  Object.entries(data).forEach(([disease, info]) => {
+    const card = document.createElement("div");
+    card.className = "diff-card";
+    if(info.error){
+      card.innerHTML = `<div class="dname">${disease}</div><div class="dnote">error</div>`;
+    } else {
+      const pct = Math.round(info.probability*100);
+      card.innerHTML = `
+        <div class="dname">${(DISEASES[disease]||{}).label || disease}</div>
+        <div class="dval ${info.prediction===1 || pct>=50 ? 'high':'low'}">${pct}%</div>
+        <div class="dnote">${info.confidence}</div>`;
+    }
+    wrap.appendChild(card);
+  });
+}
+
+function setUnitMode(mode){
+  unitMode = mode;
+  document.getElementById("unit-us").classList.toggle("active", mode === "us");
+  document.getElementById("unit-si").classList.toggle("active", mode === "si");
+  // convert currently-entered values in place so the number stays clinically correct
+  document.querySelectorAll("#form-fields [data-name]").forEach(el => {
+    const field = el.dataset.name;
+    if(UNIT_CONVERSIONS[field] && el.value !== ""){
+      const factor = UNIT_CONVERSIONS[field].factor;
+      const v = parseFloat(el.value);
+      el.value = mode === "si" ? +(v * factor).toFixed(3) : +(v / factor).toFixed(2);
+    }
+  });
+  renderForm(currentDisease);
+}
+
+document.getElementById("predict-btn").onclick = runPredict;
+document.getElementById("fill-sample-btn").onclick = fillSample;
+document.getElementById("framingham-btn").onclick = runFramingham;
+document.getElementById("download-briefing-btn").onclick = downloadBriefing;
+document.getElementById("view-trend-btn").onclick = viewTrend;
+document.getElementById("run-differential-btn").onclick = runDifferential;
+document.getElementById("unit-us").onclick = () => setUnitMode("us");
+document.getElementById("unit-si").onclick = () => setUnitMode("si");
+document.querySelectorAll(".tabsub-btn").forEach(b => b.onclick = () => switchCenterTab(b.dataset.center));
+
+init();
+loadHistory();
+</script>
+</body>
+</html>
